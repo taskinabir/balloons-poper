@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-scale, initial-scale=1.0">
+    <title>Balloon Pop Game</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: skyblue;
+            transition: background-color 0.5s;
+        }
+        #gameCanvas {
+            border: 2px solid black;
+            background-color: lightyellow;
+        }
+        #scoreBoard {
+            font-size: 20px;
+        }
+        #restartButton {
+            display: none;
+            font-size: 20px;
+            padding: 10px 20px;
+            margin-top: 20px;
+            cursor: pointer;
+            background-color: white;
+            border: 2px solid black;
+            border-radius: 5px;
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #gameOver {
+            display: none;
+            font-size: 24px;
+            color: red;
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #highScore {
+            display: none;
+            font-size: 24px;
+            color: rgb(238, 255, 1);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <h1>Balloon Pop Game</h1>
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
+    <p id="scoreBoard">Score: <span id="score">0</span> | Level: <span id="level">1</span> | Lives: <span id="lives">5</span></p>
+    <p id="gameOver">Game Over!</p>
+    <p id="highScore">Highest Score: <span id="bestScore">0</span></p>
+    <button id="restartButton" onclick="restartGame()">Play Again</button>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const body = document.body;
+
+        let balloons = [];
+        let score = 0;
+        let level = 1;
+        let speed = 1;  // Reduced initial speed
+        let missedBalloons = 0;
+        const maxMissed = 5;
+        let gameRunning = true;
+        let bestScore = localStorage.getItem("bestScore") || 0;
+        document.getElementById("bestScore").innerText = bestScore;
+
+        function createBalloons() {
+            balloons = [];
+            for (let i = 0; i < 2; i++) {
+                let x = Math.random() * (canvas.width - 30);
+                let y = canvas.height;
+                let radius = 20;
+                balloons.push({ x, y, radius, speed: speed + level * 0.5, popped: false });  // Slower balloon speed increase
+            }
+        }
+
+        function drawBalloons() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            balloons.forEach(balloon => {
+                ctx.fillStyle = balloon.popped ? "transparent" : "red"; // Change color when popped
+                ctx.beginPath();
+                ctx.arc(balloon.x, balloon.y, balloon.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.closePath();
+
+                // If popped, animate shrinking
+                if (balloon.popped) {
+                    balloon.radius -= 1;
+                    if (balloon.radius <= 0) {
+                        // Remove balloon after it completely pops
+                        balloons = balloons.filter(b => b !== balloon);
+                    }
+                }
+            });
+        }
+
+        function moveBalloons() {
+            balloons.forEach((balloon, index) => {
+                if (!balloon.popped) {
+                    balloon.y -= balloon.speed;
+                    if (balloon.y + balloon.radius < 0) {
+                        balloons.splice(index, 1);
+                        missedBalloons++;
+                        document.getElementById("lives").innerText = maxMissed - missedBalloons;
+                        if (missedBalloons >= maxMissed) {
+                            gameOver();
+                        }
+                    }
+                }
+            });
+            if (balloons.length === 0) {
+                createBalloons();
+            }
+        }
+
+        function checkCollision(x, y) {
+            balloons = balloons.filter(balloon => {
+                let dx = x - balloon.x;
+                let dy = y - balloon.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < balloon.radius && !balloon.popped) {
+                    balloon.popped = true;
+                    score++;
+                    document.getElementById("score").innerText = score;
+                    return false;
+                }
+                return true;
+            });
+            if (balloons.length === 0) {
+                level++;
+                document.getElementById("level").innerText = level;
+                createBalloons();
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById("gameOver").style.display = "block";
+            document.getElementById("restartButton").style.display = "block";
+            document.getElementById("highScore").style.display = "block";
+            body.style.backgroundColor = "black";
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem("bestScore", bestScore);
+            }
+            document.getElementById("bestScore").innerText = bestScore;
+        }
+
+        function restartGame() {
+            score = 0;
+            level = 1;
+            missedBalloons = 0;
+            gameRunning = true;
+            document.getElementById("score").innerText = score;
+            document.getElementById("level").innerText = level;
+            document.getElementById("lives").innerText = maxMissed;
+            document.getElementById("gameOver").style.display = "none";
+            document.getElementById("restartButton").style.display = "none";
+            document.getElementById("highScore").style.display = "none";
+            body.style.backgroundColor = "skyblue";
+            createBalloons();
+            gameLoop();
+        }
+
+        canvas.addEventListener("click", (event) => {
+            if (!gameRunning) return;
+            let rect = canvas.getBoundingClientRect();
+            let x = event.clientX - rect.left;
+            let y = event.clientY - rect.top;
+            checkCollision(x, y);
+        });
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            moveBalloons();
+            drawBalloons();
+            requestAnimationFrame(gameLoop);
+        }
+
+        createBalloons();
+        gameLoop();
+    </script>
+</body>
+</html>
